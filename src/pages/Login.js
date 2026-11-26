@@ -1,21 +1,19 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { login } from '../api';
 
-export default function Login() {
+export default function Login({ onSignedIn }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const navigate = useNavigate();
 
   const submit = async (e) => {
     e.preventDefault();
     setError('');
     setBusy(true);
     try {
-      await login(email, password);
-      navigate('/');
+      const admin = await login(email, password);
+      onSignedIn(admin);
     } catch (err) {
       setError(err.message);
     } finally {

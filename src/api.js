@@ -1,63 +1,73 @@
-const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-const STORAGE_KEY = 'afrivate_admin_session';
+/**
+ * Admin API client.
+ *
+ * Sessions live in HttpOnly cookies that the backend sets on login and refresh.
+ * This file never reads, stores or sends a token. Every request:
+ *   - sends cookies (`credentials: 'include'`), and
+ *   - sends `X-Admin-Request: 1`. The backend requires this header on cookie-based
+ *     requests, which blocks cross-site form attacks (see SECURITY.md).
+ */
 
-export function getSession() {
+const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+const LEGACY_STORAGE_KEY = 'afrivate_admin_session';
+
+/** Fired on window when the session can no longer be renewed. App listens for it. */
+export const SESSION_ENDED_EVENT = 'afrivate-admin:session-ended';
+
+/** Earlier builds kept tokens in localStorage. Remove them so they are never used again. */
+export function clearLegacySession() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null;
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
   } catch {
-    return null;
+    /* storage unavailable: nothing to clear */
   }
 }
 
-export function setSession(session) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+async function rawFetch(path, options = {}) {
+  const headers = { 'X-Admin-Request': '1', ...(options.headers || {}) };
+  if (options.body !== undefined && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return fetch(`${BASE_URL}${path}`, { ...options, headers, credentials: 'include' });
 }
 
-export function clearSession() {
-  localStorage.removeItem(STORAGE_KEY);
+// Several requests can fail with 401 at once. They share one refresh call.
+let refreshInFlight = null;
+
+function refreshSession() {
+  if (!refreshInFlight) {
+    refreshInFlight = rawFetch('/api/admin/auth/refresh/', { method: 'POST' })
+      .then((res) => res.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
 }
 
-async function refreshTokens() {
-  const session = getSession();
-  if (!session?.refresh_token) return null;
-  const res = await fetch(`${BASE_URL}/api/admin/auth/refresh/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: session.refresh_token }),
-  });
-  if (!res.ok) return null;
-  const tokens = await res.json();
-  setSession({ ...session, ...tokens });
-  return tokens.access_token;
+/** Turn an error response into a short, safe message. Never shows raw bodies or stack traces. */
+async function errorMessage(res, fallback) {
+  const data = await res.json().catch(() => null);
+  if (data && typeof data.detail === 'string') return data.detail;
+  if (data && typeof data === 'object') {
+    const first = Object.values(data).flat()[0];
+    if (typeof first === 'string') return first;
+  }
+  return fallback || `Request failed (${res.status}).`;
 }
 
 /** Authenticated fetch with one automatic refresh-and-retry on 401. */
 export async function apiFetch(path, options = {}, retrying = false) {
-  const session = getSession();
-  const headers = { ...(options.headers || {}) };
-  if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-  if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const res = await rawFetch(path, options);
 
   if (res.status === 401 && !retrying) {
-    const newAccess = await refreshTokens();
-    if (newAccess) return apiFetch(path, options, true);
-    clearSession();
-    window.location.hash = '#/login';
-    throw new Error('Session expired. Please log in again.');
+    if (await refreshSession()) return apiFetch(path, options, true);
+    window.dispatchEvent(new Event(SESSION_ENDED_EVENT));
+    throw new Error('Your session has ended. Please sign in again.');
   }
 
-  if (!res.ok) {
-    let detail = `Request failed (${res.status})`;
-    try {
-      const data = await res.json();
-      detail = data.detail || JSON.stringify(data);
-    } catch {
-      /* non-JSON error body */
-    }
-    throw new Error(detail);
-  }
+  if (!res.ok) throw new Error(await errorMessage(res));
   return res;
 }
 
@@ -69,7 +79,7 @@ export async function apiSend(path, method, body) {
   return (await apiFetch(path, { method, body: JSON.stringify(body) })).json();
 }
 
-/** Download a CSV export (auth header required, so no plain <a href>). */
+/** Download a CSV export. Cookies are sent automatically, so a plain <a href> cannot be used. */
 export async function apiDownload(path, filename) {
   const res = await apiFetch(path);
   const blob = await res.blob();
@@ -81,17 +91,27 @@ export async function apiDownload(path, filename) {
   URL.revokeObjectURL(url);
 }
 
+/** Returns the signed-in admin, or throws if there is no valid session. */
+export async function fetchMe() {
+  return (await apiFetch('/api/admin/auth/me/')).json();
+}
+
+/** Signs in. The backend sets the cookies; only the admin profile comes back. */
 export async function login(email, password) {
-  const res = await fetch(`${BASE_URL}/api/admin/auth/login/`, {
+  const res = await rawFetch('/api/admin/auth/login/', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg = data.detail || data.non_field_errors?.[0] || 'Login failed.';
-    throw new Error(msg);
-  }
-  setSession(data);
+  if (!res.ok) throw new Error(await errorMessage(res, 'Login failed.'));
+  const data = await res.json();
   return data.admin;
+}
+
+/** Ends the session on the server, which revokes it everywhere. Local state is cleared by the caller. */
+export async function logout() {
+  try {
+    await rawFetch('/api/admin/auth/logout/', { method: 'POST' });
+  } catch {
+    /* Network error: the cookies still expire on their own, so carry on. */
+  }
 }

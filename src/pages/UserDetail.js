@@ -33,9 +33,10 @@ export default function UserDetail() {
   const load = useCallback(async () => {
     try {
       setError('');
-      const detail = await apiGet(`/api/admin/users/${id}/`);
+      const detail = await apiGet(`/api/admin/users/${encodeURIComponent(id)}/`);
       setData(detail);
-      setNotes(await apiGet(`/api/admin/notes/?entity_type=${detail.type}&entity_id=${id}`));
+      const notesQuery = new URLSearchParams({ entity_type: detail.type, entity_id: id });
+      setNotes(await apiGet(`/api/admin/notes/?${notesQuery}`));
     } catch (err) {
       setError(err.message);
     }
@@ -58,17 +59,17 @@ export default function UserDetail() {
 
   const suspend = () => {
     const reason = ask('Reason for suspending this account (required):');
-    if (reason) act(() => apiSend(`/api/admin/users/${id}/suspend/`, 'POST', { reason }));
+    if (reason) act(() => apiSend(`/api/admin/users/${encodeURIComponent(id)}/suspend/`, 'POST', { reason }));
   };
 
   const reinstate = () => {
     const reason = ask('Reason for reinstating this account (required):');
-    if (reason) act(() => apiSend(`/api/admin/users/${id}/reinstate/`, 'POST', { reason }));
+    if (reason) act(() => apiSend(`/api/admin/users/${encodeURIComponent(id)}/reinstate/`, 'POST', { reason }));
   };
 
   const sendMessage = () =>
     act(async () => {
-      await apiSend(`/api/admin/users/${id}/message/`, 'POST', message);
+      await apiSend(`/api/admin/users/${encodeURIComponent(id)}/message/`, 'POST', message);
       setShowMessage(false);
       setMessage({ subject: '', body: '' });
       setInfo('Message sent (email + in-app notification).');
@@ -76,7 +77,7 @@ export default function UserDetail() {
 
   const saveEdit = () =>
     act(async () => {
-      await apiSend(`/api/admin/users/${id}/edit/`, 'PATCH', edit);
+      await apiSend(`/api/admin/users/${encodeURIComponent(id)}/edit/`, 'PATCH', edit);
       setEdit(null);
       setInfo('Profile updated.');
     });
