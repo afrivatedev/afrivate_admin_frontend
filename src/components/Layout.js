@@ -9,8 +9,8 @@ import {
   X,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { clearSession, getSession } from '../api';
+import { NavLink, Outlet } from 'react-router-dom';
+import { logout } from '../api';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -45,14 +45,13 @@ function NavLinks({ onNavigate }) {
   );
 }
 
-export default function Layout() {
-  const navigate = useNavigate();
+export default function Layout({ admin, onSignedOut }) {
   const [open, setOpen] = useState(false);
-  const admin = getSession()?.admin;
 
-  const logout = () => {
-    clearSession();
-    navigate('/login');
+  // The server ends the session; App then shows the login page (route guard).
+  const signOut = async () => {
+    await logout();
+    onSignedOut();
   };
 
   const accountBlock = (
@@ -60,7 +59,7 @@ export default function Layout() {
       <p className="font-semibold truncate">{admin?.full_name}</p>
       <p className="text-white/60 text-xs truncate mb-3">{admin?.email}</p>
       <button
-        onClick={logout}
+        onClick={signOut}
         className="flex items-center gap-2 text-white/70 hover:text-white text-sm"
       >
         <LogOut size={15} /> Logout

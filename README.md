@@ -29,8 +29,8 @@ npm install
 npm start          # runs on http://localhost:3001 (the backend allows this origin in CORS)
 ```
 
-Backend must be running on the URL in `.env` (`REACT_APP_API_BASE_URL`,
-default `http://localhost:8000`).
+Backend must be running on the URL in `.env` (`VITE_API_BASE_URL`,
+default `http://localhost:8000`). Requires Node.js 18 or newer.
 
 To create your first admin account, from `Afrivate-Backend/app`:
 
@@ -42,10 +42,11 @@ python manage.py create_admin --email you@afrivate.org --name "Your Name"
 
 ```bash
 npm run build      # static output in build/
+npm run preview    # serve build/ locally to check it before deploy
 ```
 
 Deploy `build/` anywhere static (the app uses hash routing, so no server rewrites
-are needed). Set `REACT_APP_API_BASE_URL` to the production backend URL at build
+are needed). Set `VITE_API_BASE_URL` to the production backend URL at build
 time, and make sure the admin site's origin is included in the backend's
 `CORS_ALLOWED_ORIGINS` env var.
 

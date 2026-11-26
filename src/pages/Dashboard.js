@@ -41,7 +41,7 @@ export default function Dashboard() {
   const load = useCallback(async () => {
     try {
       setError('');
-      setData(await apiGet(`/api/admin/analytics/overview/?days=${days}`));
+      setData(await apiGet(`/api/admin/analytics/overview/?${new URLSearchParams({ days })}`));
     } catch (err) {
       setError(err.message);
     }
@@ -52,7 +52,10 @@ export default function Dashboard() {
   }, [load]);
 
   const exportTable = (table) =>
-    apiDownload(`/api/admin/analytics/export/?table=${table}&days=${days}`, `afrivate_${table}.csv`);
+    apiDownload(
+      `/api/admin/analytics/export/?${new URLSearchParams({ table, days })}`,
+      `afrivate_${table}.csv`,
+    );
 
   if (!data && !error) return <p className="text-gray-500">Loading analytics…</p>;
 
