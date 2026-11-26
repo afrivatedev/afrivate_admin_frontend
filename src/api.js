@@ -8,7 +8,7 @@
  *     requests, which blocks cross-site form attacks (see SECURITY.md).
  */
 
-const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const LEGACY_STORAGE_KEY = 'afrivate_admin_session';
 
 /** Fired on window when the session can no longer be renewed. App listens for it. */

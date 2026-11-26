@@ -6,7 +6,7 @@ These rules describe how the code is written today. Follow them for new code. Do
 
 ## Stack
 
-- React 18 (Create React App, `react-scripts`)
+- React 18, built with Vite 6
 - React Router v6 with `HashRouter`
 - Tailwind CSS v3. Brand colour: `#6A00B1`.
 - `lucide-react` for icons
@@ -24,8 +24,9 @@ src/
 │   ├── Layout.js       sidebar, drawer, logout
 │   └── ui.js           shared UI pieces (Card, Table, StatusBadge, buttons, date helpers)
 └── pages/              one file per route
+index.html              meta tags and the Content Security Policy (project root)
+vite.config.js          build and dev-server settings
 public/
-├── index.html          meta tags and the Content Security Policy
 ├── logo.png
 └── favicon.ico
 ```
@@ -71,10 +72,10 @@ public/
 
 ## Build and lint
 
-- The build must pass with `CI=true` before merging.
+- The build must pass before merging. Vite has no `CI=true` lint gate, so also check the build output for warnings.
 
 ```bash
-CI=true npm run build
+npm run build
 ```
 
 ## Commits and pull requests

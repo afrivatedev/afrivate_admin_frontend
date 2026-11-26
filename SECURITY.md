@@ -13,7 +13,7 @@ Include the page or route affected, steps to reproduce, and what an attacker cou
 ## Rules for this codebase
 
 **Never put secrets in the frontend**
-- Anything named `REACT_APP_*` is built into the JavaScript and is public.
+- Anything named `VITE_*` is built into the JavaScript and is public.
 - Only the API base URL belongs in `.env`. Never add passwords, API keys, the Django `SECRET_KEY` or database URLs.
 - `.env` is not committed (see `.gitignore`). Copy `.env.example` to start.
 
@@ -35,9 +35,10 @@ Include the page or route affected, steps to reproduce, and what an attacker cou
 - Build query strings with `URLSearchParams` or `encodeURIComponent`. Never splice user input or route params into a URL with a template string.
 
 **Content Security Policy (CSP)**
-- `public/index.html` sets a CSP meta tag: scripts and styles only from this origin (inline styles allowed for React), images from this origin and `data:`, fonts from this origin, and requests only to this origin and the API origin.
+- `index.html` (project root) sets a CSP meta tag: scripts and styles only from this origin (inline styles allowed for React), images from this origin and `data:`, fonts from this origin, and requests only to this origin and the API origin.
 - Meta tags cannot set `frame-ancestors`, `X-Frame-Options`, `Strict-Transport-Security` or `Permissions-Policy`. Set those as HTTP headers on the host. See "Headers to set on the host" below.
-- The API origin is filled in from `REACT_APP_API_BASE_URL` at build time. If the variable is missing at build time, the CSP contains the literal text `%REACT_APP_API_BASE_URL%` and API calls will be blocked. Always set it in the build environment.
+- The API origin is filled in from `VITE_API_BASE_URL` at build time. If the variable is missing at build time, the CSP contains the literal text `%VITE_API_BASE_URL%` and API calls will be blocked. Always set it in the build environment.
+- The CSP meta tag is removed only by the dev server (`npm start`), so the React refresh script can run. Production builds always keep it (see `vite.config.js`).
 
 **Fonts**
 - Montserrat is self-hosted through `@fontsource/montserrat`. Nothing is loaded from Google Fonts, so visitors' IP addresses are not sent to Google.
@@ -71,10 +72,12 @@ Set these on the static host (Render static site: Headers settings or `render.ya
 ## Dependencies
 
 - Run `npm audit` before each release. Fix high and critical issues in runtime libraries first.
-- At the time of writing `npm audit` reports 2 critical and 26 high findings. Almost all are in `react-scripts` (the build and dev-server toolchain), not in React, React DOM, React Router or lucide-react. They are not fixed by `npm audit fix --force`, because that would break the build. The planned fix is moving the build tool to Vite (see `ARCHITECTURE.md`).
+- The build tool is Vite 6 (it replaced `react-scripts`, which was the source of most earlier findings). After the move, `npm audit` reports 0 critical and 0 high. Three moderate findings remain:
+  - `react-router-dom` 6 (direct dependency): a moderate advisory. The fix is the 7.x line, which needs Node 20 or newer. That upgrade is planned as a separate change.
+  - `react-router` and `postcss-selector-parser` (transitive, through React Router and Tailwind's tooling). They go away with the React Router 7 upgrade and the Tailwind tooling update.
+- `overrides` in `package.json` pin `nanoid` and `source-map-js` to patched versions. Remove an override only after checking the audit again.
 
 ## Known gaps
 
 - The admin site and the API are on different hostnames. Cookies sent between them are cross-site and need `SameSite=None; Secure`. Some browsers block third-party cookies, which can stop sign-in. The fix is to serve both under one domain (for example `admin.afrivate.org` and `api.afrivate.org`) and set `SameSite=Lax` or `Strict`. See `ARCHITECTURE.md`.
-- No automated tests yet. The check is `CI=true npm run build` plus a manual browser check of sign-in, navigation and logout.
-- The `react-scripts` toolchain is past end-of-life and carries the audit findings above.
+- No automated tests yet. The check is `npm run build` plus a manual browser check of sign-in, navigation and logout.

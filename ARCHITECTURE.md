@@ -8,7 +8,7 @@ The admin dashboard is a React single-page app for the Afrivate internal team. I
 
 | Part | Choice |
 |---|---|
-| Framework | React 18 (Create React App, `react-scripts` 5) |
+| Framework | React 18, built with Vite 6 (`vite`, `@vitejs/plugin-react`) |
 | Routing | React Router v6, `HashRouter` (URLs look like `#/users`, so no server rewrites are needed) |
 | Styling | Tailwind CSS v3, brand colour `#6A00B1` |
 | Icons | `lucide-react` |
@@ -62,15 +62,15 @@ Browser                          Backend (/api/admin/)
 ## Environments
 
 - **Local:** `npm start` on `http://localhost:3001`. The backend allows this origin in CORS. Backend on `http://localhost:8000`.
-- **Live:** the admin static site on Render. Its build must set `REACT_APP_API_BASE_URL` to the live backend URL, because the CSP and the API calls use it.
+- **Live:** the admin static site on Render. Its build must set `VITE_API_BASE_URL` to the live backend URL, because the CSP and the API calls use it. Vite reads it at build time, so a change needs a rebuild.
 
 ## Build and tooling
 
-- `npm run build` creates `build/`. Use `CI=true npm run build` as the check. It fails on lint warnings.
+- `npm run build` creates `build/` (Vite `outDir`). Use `npm run build` as the check. Vite does not fail on lint warnings, so run `npm audit` and test by hand as well.
+- `npm start` runs the Vite dev server on port 3001. `npm run preview` serves the built `build/` folder for a local check.
+- Config lives in `vite.config.js`. The `.js` files in `src/` are treated as JSX, as Create React App did, so no file renames were needed.
 - No automated test suite yet.
-- Known toolchain issue: `react-scripts` 5 is unmaintained and accounts for most `npm audit` findings (see `SECURITY.md`).
-
-**Planned change (not started):** move from Create React App to Vite. The change touches the build config, the `.env` variable names (`VITE_` prefix instead of `REACT_APP_`), the `index.html` placeholder for the API origin in the CSP, and the Tailwind setup. Plan: a separate branch, then the same screens tested by hand. Owner decision needed on timing.
+- Migration history: Create React App (`react-scripts`) was replaced by Vite in November 2026 because `react-scripts` was unmaintained and caused most `npm audit` findings (see `SECURITY.md`). The env variables moved from `REACT_APP_*` to `VITE_*`, and `index.html` moved from `public/` to the project root.
 
 ## Backend contract
 
@@ -88,7 +88,8 @@ The admin API lives in the backend at `app/adminpanel/` (`urls.py`). Key rules t
 | `src/` | `App.js`, `api.js`, `index.js`, `index.css` |
 | `src/components/` | `Layout.js` (navigation shell), `ui.js` (shared pieces: `Card`, `StatTile`, `StatusBadge`, `Table`, `ExportButton`, `PrimaryButton`, `DateRangePicker`, `ErrorNote`, `fmtDate`) |
 | `src/pages/` | One file per route |
-| `public/` | `index.html` (CSP and meta tags), `logo.png`, `favicon.ico` |
+| project root | `index.html` (CSP and meta tags), `vite.config.js`, `package.json`, `.env.example` |
+| `public/` | Static files copied as-is: `logo.png`, `favicon.ico` |
 
 ## Where to look next
 
